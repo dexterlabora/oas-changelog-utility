@@ -23,13 +23,19 @@ A simple VueJS application to interact with the REST API and generate changelogs
 
 ## REST Interface
 
+### Generage Changelog based off of two OASv2 specifications
+
 `POST /swagger/diff`
 
 > **Body Parameters**
+>
 > `format`   Enum: `markdown, html, diff, diffMin, csv`
+>
 > `oldSpec`  A URL or contents of a valid OpenAPIv2 Spec
+>
 > `newSpec`  A URL or contents of a valid OpenAPIv2 Spec
 
+**Example Body**
 ```json
 {
     "format": "csv",
@@ -38,7 +44,7 @@ A simple VueJS application to interact with the REST API and generate changelogs
 }
 ```
 
-*Response*
+**Response**
 ```csv
 "ruleId","message","path","method","property","type","name","group","category","service","param"
 "add-optional-object-property","`paths//networks/{networkId}/appliance/vlans/post/parameters/createNetworkApplianceVlan/schema`
@@ -57,11 +63,13 @@ Updated","appliance","configure","vlans",...
 - [Destroy a webhook payload template for a network. Does not work for included templates ('wpt\_00001', 'wpt\_00002' or
 ```
 
-Org / BetaAlpha Changelog
+### Org / BetaAlpha Changelog
 `GET /swagger/diff`
 
 > **Query Options**
+>
 > `format`  markdown, html, diff, diffMin, csv
+>
 > `organizationId`  Your Meraki Organization ID
 
 
