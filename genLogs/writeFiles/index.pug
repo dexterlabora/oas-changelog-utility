@@ -1,0 +1,125 @@
+
+
+doctype html
+html(lang="en")
+  head
+    link(rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css"
+    integrity="sha384-9gVQ4dYFwwWSjIDZnLEWnxCjeSWFphJiwGPXr1jddIhOegiu1FwO5qRGvFXOdJZ4" crossorigin="anonymous")
+    link(rel="stylesheet" href="style.css")
+  body.container 
+    p Version 
+        b #{oldVersion} 
+        i to 
+        b #{newVersion}
+ 
+    hr
+    p
+      b Summary of Changes 
+    p 
+      b #{diffStats.new} - New 
+    p 
+      b #{diffStats.updated} - Updated
+    p 
+      b #{diffStats.totalSpecEndpoints} - Total Endpoints 
+    p 
+      b #{diffStats.totalPaths} - Total Paths 
+
+    hr
+
+
+
+    hr
+
+    // Group by Named Type
+    for n in uniqueNames
+        if n !== "UnmatchDiffs"
+          h1.names= n    
+             
+          // Group by Group Tag
+          - const diffNames = diff.filter(d => d.name === n)
+          for ug in uniqueGroups
+            - const diffGroups = diffNames.filter(d => d.group === ug)
+
+            for dg,i in diffGroups
+              
+              if i == 0
+                if dg.group
+                  h2 [ #{dg.group} ] 
+                else
+                  h2 [ global ]
+                |
+
+                // Group by Service
+                for us in uniqueServices
+                  - const diffServices = diff.filter(d => d.name === n && d.group === ug && d.service === us)
+
+                  for ds,i in diffServices
+                    
+                    if i == 0
+                      if ds.service
+                        h3 #{ds.service}
+                      else
+                        h3 service
+                      |                
+
+                      // Group by Methods
+                      for um in uniqueMethods
+                        - const diffMethods = diff.filter(d => d.name === n && d.group === ug && d.service === us && d.method === um)
+                        - const uniquePaths = [...new Set(diffMethods.map(item => item.path))];        
+                        // Limit duplicate path details   
+                        for up,i in uniquePaths
+                          - const paths = diffMethods.filter(d => d.path === up)                 
+                  
+                          for p,i in paths
+                            // Only display method and path for first iteration
+                            if i == 0
+                              if p.apiDetails
+                                p.ml-4
+                                  |
+                                  // a(target="_blank", href=p.docUrl ) 
+                                  h4= p.apiDetails.summary
+                              else if p.details
+                                p.ml-4
+                                  |
+                                  // a(target="_blank", href=p.docUrl ) 
+                                  h4= p.details.summary
+                                    
+                                  
+                              p(class=`mr-4 badge ${p.method || 'path'}`) #{p.method ? (p.method.toUpperCase()) : 'PATH'} <em><code>#{p.path}</code></em>
+                                    
+                            p.ml-5 <blockquote><p>- !{p.messageHtml}</p></blockquote>
+                            |
+                            |
+                            
+                          hr
+                          |
+                    
+                
+  style.
+    .post {
+      background-color: sandybrown;
+    }
+    .get {
+      background-color: green;
+    }
+    .put {
+      background-color: steelblue;
+    }
+    .delete {
+      background-color: tomato;
+    }
+    .path {
+      background-color: gray;
+    }
+    .names {
+      color: darkgreen;
+    }
+
+          
+
+
+
+
+       
+                          
+    

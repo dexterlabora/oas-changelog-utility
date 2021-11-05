@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/buefy/dist/buefy.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/vue-markdown@2.2.4/dist/vue-markdown.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.js"
+      integrity="sha256-XmdRbTre/3RulhYk/cOBUMpYlaAp2Rpo/s556u0OIKk="
+      crossorigin="anonymous"
+    ></script>
+
+    <!-- <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/themes/prism.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/prism.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/katex@0.6.0/dist/katex.min.css"
+    /> -->
+
+    <link
+      type="text/css"
+      rel="stylesheet"
+      href="https://unpkg.com/bootstrap/dist/css/bootstrap.min.css"
+    />
+    <link
+      type="text/css"
+      rel="stylesheet"
+      href="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.css"
+    />
+
+    <script src="https://unpkg.com/vue"></script>
+    <script src="https://unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.js"></script>
+  </head>
+
+  <body>
+    <div id="app">
+      <!-- Buefy components goes here -->
+      <div id="app" class="container">
+        <section>
+          <div class="block">
+            <b-field label="Old Version">
+              <b-select placeholder="Select a name" v-model="oldSpec">
+                <option
+                  v-for="option in oldSpecItems"
+                  :value="option.value"
+                  :key="option.name"
+                >
+                  {{ option.name }}
+                </option>
+              </b-select>
+            </b-field>
+            <b-field>
+              <b-input v-model="oldSpec"></b-input>
+            </b-field>
+          </div>
+        </section>
+        <section>
+          <b-field label="New Version">
+            <b-select placeholder="Select a name" v-model="newSpec">
+              <option
+                v-for="option in newSpecItems"
+                :value="option.value"
+                :key="option.name"
+              >
+                {{ option.name }}
+              </option>
+            </b-select>
+          </b-field>
+          <b-field>
+            <b-input v-model="newSpec"></b-input>
+          </b-field>
+
+          <b-button @click="onSubmit">Generate</b-button>
+        </section>
+        <section>
+          <vue-markdown :source="markdown" class="markdown-body"></vue-markdown>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/vue"></script>
+    <!-- Full bundle -->
+    <script src="https://unpkg.com/buefy/dist/buefy.min.js"></script>
+
+    <!-- Individual components -->
+    <script src="https://unpkg.com/buefy/dist/components/table"></script>
+    <script src="https://unpkg.com/buefy/dist/components/input"></script>
+
+    <script>
+      const serverPath = window.location.href;
+      console.log("serverPath ", serverPath);
+      Vue.use(VueMarkdown);
+      new Vue({
+        el: "#app",
+
+        data: {
+          currentUrl: serverPath,
+          markdown: "",
+          diff: {},
+          oldSpec: "",
+          newSpec: "",
+          toggleEditor: false,
+          showApiInfo: false,
+          loading: false,
+          oldSpecItems: [
+            {
+              name: "v0-streaming",
+              value: "https://api.meraki.com/api/v0/openapiSpec"
+            },
+            {
+              name: "v1-streaming",
+              value: "https://api.meraki.com/api/v1/openapiSpec"
+            }
+          ],
+          newSpecItems: [
+            {
+              name: "v0-streaming",
+              value: "https://api.meraki.com/api/v0/openapiSpec"
+            },
+            {
+              name: "v1-streaming",
+              value: "https://api.meraki.com/api/v1/openapiSpec"
+            }
+          ]
+        },
+        computed: {
+          // compiledMarkdown: function() {
+          //   return marked(this.markdown, { sanitize: true });
+          // },
+          apiUrl() {
+            return this.stripTrailingSlash(serverPath) + "/swagger/diff";
+          }
+        },
+        mounted() {
+          this.fetchReleases();
+        },
+        methods: {
+          stripTrailingSlash(str) {
+            return str.replace(/\/$/, "");
+          },
+          oldSelected(value) {
+            console.log("oldSelected", value);
+            this.oldSpec = value;
+          },
+          fetchReleases() {
+            axios
+              .get("https://api.github.com/repos/dexterlabora/openapi/releases")
+              .then(res => {
+                this.releases = res.data;
+
+                this.releases.forEach(r => {
+                  this.oldSpecItems.push({
+                    name: r.tag_name,
+                    value: `https://raw.githubusercontent.com/dexterlabora/openapi/${r.tag_name}/openapi/spec2.json`
+                  });
+                  this.newSpecItems.push({
+                    name: r.tag_name,
+                    value: `https://raw.githubusercontent.com/dexterlabora/openapi/${r.tag_name}/openapi/spec2.json`
+                  });
+                });
+              });
+          },
+          update(e) {
+            this.markdown = e.target.value;
+          },
+          onSubmit() {
+            //htmlContent.innerHTML = 'loading...';
+            this.markdown = "";
+            this.loading = true;
+
+            console.log("fetching changelog ", this.apiUrl);
+            axios({
+              url: this.apiUrl,
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              data: {
+                oldSpec: this.oldSpec.value || this.oldSpec,
+                newSpec: this.newSpec.value || this.newSpec
+              }
+            })
+              .then(response => {
+                //console.log('response.data ', response.data);
+                return response.data;
+              })
+              .then(json => {
+                this.diff = json;
+                this.markdown = json.markdown;
+              })
+              .catch(e => {
+                console.log("fetch failed", e);
+              })
+              .finally(() => {
+                this.loading = false;
+              });
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

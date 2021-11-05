@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+  <title>OAS Changelog</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/0.6.3/marked.min.js"></script> -->
+
+  <script src="https://cdn.jsdelivr.net/npm/vue-markdown@2.2.4/dist/vue-markdown.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.15/lodash.min.js"></script>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@4.x/css/materialdesignicons.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/3.0.1/github-markdown.min.css"
+    integrity="sha256-HbgiGHMLxHZ3kkAiixyvnaaZFNjNWLYKD/QG6PWaQPc=" crossorigin="anonymous" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.js"
+    integrity="sha256-XmdRbTre/3RulhYk/cOBUMpYlaAp2Rpo/s556u0OIKk=" crossorigin="anonymous"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/prism.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.6.0/themes/prism.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/katex@0.6.0/dist/katex.min.css">
+</head>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+
+
+
+<body>
+  <div id="app">
+    <v-app id="inspire">
+      <v-app-bar app color="#67b346" dark>
+        <v-toolbar-title>Meraki OpenAPI Changelog Generator</v-toolbar-title>
+        <v-spacer></v-spacer>
+        <v-spacer></v-spacer>
+
+        <v-app-bar-nav-icon @click.stop="showApiInfo = !showApiInfo" />
+        <v-icon>mdi-cogs</v-icon>
+      </v-app-bar>
+      <v-dialog right v-model="showApiInfo" width="500px">
+
+
+        <v-card>
+          <v-card-title class="headline grey lighten-2" primary-title>
+            API Info
+          </v-card-title>
+
+          <v-card-text>
+            <p>
+              Use an API to generate changelog markdown, html and a
+              JSON diff.
+            </p>
+
+            <h3>Endpoint</h3>
+            <p>
+              <code>[POST] {{apiUrl}}</code>
+            </p>
+            <h3>Body</h3>
+            <p>
+              <pre style="width:100%"><code style="width:95%">
+{
+    "oldSpec": "https://api.meraki.com/api/v0/openapiSpec",
+    "newSpec": "https://api.meraki.com/api/v1/openapiSpec",         
+    "format": "markdown"  (optional)
+}
+          </code></pre>
+            </p>
+
+            <h3>Response</h3>
+            <p>
+              <pre style="width:100%"><code style="width:95%">
+{
+    "diff": [],
+    "diffMin":[],
+    "markdown":"The Markdown Changelog",
+    "csv": "the,csv,changelog",
+    "html","The Markdown HTML"
+}
+
+                    </code></pre>
+            </p>
+          </v-card-text>
+
+          <v-divider></v-divider>
+
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="primary" text @click="showApiInfo = false">
+              Ok
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+      </v-app-bar>
+
+      <v-content>
+
+        <v-container fluid>
+          <p>Select an Open API Specification from a list of Meraki releases or enter a URL to a JSON file. </p>
+          <v-row>
+
+            <v-col cols="12" md="3">
+              <v-combobox :items="oldSpecItems" item-text="name" item-value="value" v-model="oldSpec"
+                label="Old OAS Spec" required :hint="oldSpec.value"></v-combobox>
+            </v-col>
+
+            <v-col cols="12" md="3">
+              <v-combobox :items="newSpecItems" item-text="name" item-value="value" v-model="newSpec"
+                @change:newItem.value=data.item label="New OAS Spec" required :hint="newSpec.value"></v-combobox>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-toolbar>
+                <v-btn  class="mr-5" color="green" @click="onSubmit">Generate Changelog</v-btn>
+                <v-spacer></v-spacer>
+              <v-btn class="mr-2"  @click="onLatestGA">Latest GA</v-btn>
+              <v-btn class="mr-2" @click="onLatestBeta">Latest Beta</v-btn>
+              <v-btn class="mr-2" @click="onAllBeta">All Beta</v-btn>
+
+              </v-toolbar>
+              <v-toolbar dense>
+                <v-switch class="pt-5" v-model="toggleEditor" label="Markdown Editor"></v-switch>
+                <v-spacer></v-spacer>
+                <v-label >Export Changelog</v-label>
+                <v-btn class="ml-5 mr-2" small @click="onDownloadMarkdown">Markdown</v-btn>
+                <v-btn class="mr-2" small @click="onDownloadDiffMinJSON">JSON</v-btn>
+                <v-btn class="mr-2" small @click="onDownloadDiffCSV">CSV</v-btn>
+              </v-toolbar>
+              
+            </v-col>
+            
+          </v-row>
+          <!-- <v-row>
+
+              <v-col cols="12" md="6">
+                <div v-if="diffStats">
+
+                  <v-card>
+                    NEW: {{diffStats.new}}
+                  </v-card>
+                  <v-card>
+                    UPDATED: {{diffStats.updated}}
+                  </v-card>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                
+
+
+
+
+
+
+
+            </v-row> -->
+<v-container>
+          <v-row>
+            <v-col cols="12" md="12" v-if="toggleEditor">
+              <v-textarea v-model="markdown" label="Markdown Editor" @change="update" rows="30" class="mr-2"
+                v-if="markdown">
+              </v-textarea>
+            </v-col>
+          </v-row>
+          <!-- <v-row>
+            <v-col cols="12" md="12">
+              <div id="toc" v-show="!toggleEditor"></div>
+            </v-col>
+          </v-row> -->
+          <v-row>
+
+            <v-col cols="12" md="12">
+              <!-- <vue-markdown :source="markdown" class="markdown-body"></vue-markdown> -->
+              <vue-markdown class="result-html full-height markdown-body"
+                :watches="['show','html','breaks','linkify','emoji','typographer','toc']" :source="markdown"
+                :show="show" :html="html" :breaks="breaks" :linkify="linkify" :emoji="emoji" :typographer="typographer"
+                :toc="toc" v-on:rendered="allRight" v-on:toc-rendered="tocAllRight" toc-id="toc" :toc-last-level="5"
+                :toc-anchor-link="false" :toc-first-level="1" :toc-anchor-link-space="true"></vue-markdown>
+
+              <!-- <div v-html="compiledMarkdown" class="ml-1"></div> -->
+              <div v-if="loading">
+                Please wait, this could take up to 30 seconds if there are siginficant changes.
+                <v-progress-circular :size="50" color="primary" indeterminate></v-progress-circular>
+              </div>
+            </v-col>
+          </v-row>
+        </v-container>
+        </v-container>
+      </v-content>
+      <v-footer color="grey" app>
+        <span class="white--text">&copy; 2019 - <a href="https://meraki.io" target="_blank">Meraki.io</a> - Create by <a
+            href="https://github.com/dexterlabora" target="_blank">DexterLabora.</a> <i>Automate All the
+            Things!</i></span>
+      </v-footer>
+    </v-app>
+  </div>
+</body>
+<script>
+  // var semverSort = require('semver-sort');
+  const serverPath = window.location.origin.includes("cloudfunctions") ? window.location.origin + "/app" : window
+    .location.origin;
+  console.log("serverPath ", serverPath);
+  Vue.use(VueMarkdown);
+  new Vue({
+    el: '#app',
+    vuetify: new Vuetify(),
+    data: {
+
+      show: true,
+      html: true,
+      breaks: true,
+      linkify: true,
+      emoji: false,
+      typographer: true,
+      toc: true,
+      releases: [],
+      previousV1Release: {},
+      previousV1BetaRelease: {},
+      latestV1Release: "",
+      latestV1BetaRelease: "",
+      currentUrl: serverPath,
+      markdown: '',
+      diff: {},
+      oldSpec: {
+        name: "",
+        value: ""
+      },
+      newSpec: {
+        name: "",
+        value: ""
+      },
+      toggleEditor: false,
+      showApiInfo: false,
+      loading: false,
+      oldSpecItems: [{
+          name: 'v1',
+          value: `https://raw.githubusercontent.com/meraki/openapi/master/openapi/spec2.json`,
+        },
+        {
+          name: 'v1-beta',
+          value: `https://raw.githubusercontent.com/meraki/openapi/v1-beta/openapi/spec2.json`,
+        },
+        {
+          name: 'v0-streaming',
+          value: 'https://api.meraki.com/api/v0/openapiSpec',
+        },
+        {
+          name: 'v1-streaming',
+          value: 'https://api.meraki.com/api/v1/openapiSpec',
+        },
+      ],
+      newSpecItems: [{
+          name: 'v1',
+          value: `https://raw.githubusercontent.com/meraki/openapi/master/openapi/spec2.json`,
+        },
+        {
+          name: 'v1-beta',
+          value: `https://raw.githubusercontent.com/meraki/openapi/v1-beta/openapi/spec2.json`,
+        },
+        {
+          name: 'v0-streaming',
+          value: 'https://api.meraki.com/api/v0/openapiSpec',
+        },
+        {
+          name: 'v1-streaming',
+          value: 'https://api.meraki.com/api/v1/openapiSpec',
+        },
+      ],
+    },
+    computed: {
+      compiledMarkdown: function () {
+        return marked(this.markdown, {
+          sanitize: true
+        });
+      },
+
+      apiUrl() {
+        return this.stripTrailingSlash(serverPath) + "/swagger/diff"
+      } //,
+      // diffStats() {
+      //   if (!this.diff.diffMin) {
+      //     return
+      //   }
+      //   return {
+      //     "new": this.diff.diffMin.filter(d => d.name === "What's New").length,
+      //     "updated": this.diff.diffMin.filter(d => d.name === "What's Updated").length
+      //   }
+      // }
+    },
+    mounted() {
+      this.fetchReleases();
+
+    },
+    methods: {
+
+      allRight: function (htmlStr) {
+        console.log("markdown is parsed !");
+      },
+      tocAllRight: function (tocHtmlStr) {
+        console.log("toc is parsed :", tocHtmlStr);
+      },
+      stripTrailingSlash(str) {
+        return str.replace(/\/$/, '');
+      },
+      convertToCSV(data) {
+        csv = data.map(row => Object.values(row));
+        csv.unshift(Object.keys(data[0]));
+        return `"${csv.join('"\n"').replace(/,/g, '","')}"`;
+      },
+      download(filename, textInput) {
+        var element = document.createElement('a');
+        element.setAttribute('href', 'data:text/plain;charset=utf-8, ' + encodeURIComponent(textInput));
+        element.setAttribute('download', filename);
+        document.body.appendChild(element);
+        element.click();
+        //document.body.removeChild(element);
+
+      },
+      onDownloadMarkdown() {
+        let name = `${this.newSpec.name}.md`
+        this.download(name, this.markdown)
+      },
+      onDownloadDiffMinJSON() {
+        let name = `Meraki_API_Diff_${this.oldSpec.name}_to_${this.newSpec.name}.json`
+        this.download(name, JSON.stringify(this.diff.diffMin, null, 4))
+      },
+      onDownloadDiffCSV() {
+        let name = `Meraki_API_Diff_${this.oldSpec.name}_to_${this.newSpec.name}.csv`
+        // let csv = this.convertToCSV(this.diff.diffMin)
+        let csv = this.diff.csv
+        this.download(name, csv)
+      },
+      async fetchReleases() {
+        this.releases = await axios
+          .get('https://api.github.com/repos/meraki/openapi/releases')
+          .then(res => {
+            return res.data;
+          })
+        this.releases.forEach(r => {
+          this.oldSpecItems.push({
+            name: r.tag_name,
+            value: `https://raw.githubusercontent.com/meraki/openapi/${r.tag_name}/openapi/spec2.json`,
+          });
+          this.newSpecItems.push({
+            name: r.tag_name,
+            value: `https://raw.githubusercontent.com/meraki/openapi/${r.tag_name}/openapi/spec2.json`,
+          });
+        });
+
+
+
+        // get previous releases
+
+        this.previousV1Release = {
+          name: this.releases.filter(r => !r.prerelease)[1].tag_name,
+          value: `https://raw.githubusercontent.com/meraki/openapi/${this.releases.filter(r => !r.prerelease)[1].tag_name}/openapi/spec2.json`
+        }
+        this.latestV1Release = {
+          name: this.releases.filter(r => !r.prerelease)[0].tag_name,
+          value: `https://raw.githubusercontent.com/meraki/openapi/${this.releases.filter(r => !r.prerelease)[0].tag_name}/openapi/spec2.json`
+        }
+        this.previousV1BetaRelease = {
+          name: this.releases.filter(r => r.prerelease)[1].tag_name,
+          value: `https://raw.githubusercontent.com/meraki/openapi/${this.releases.filter(r => r.prerelease)[1].tag_name}/openapi/spec2.json`
+        }
+        this.latestV1BetaRelease = {
+          name: this.releases.filter(r => r.prerelease)[0].tag_name,
+          value: `https://raw.githubusercontent.com/meraki/openapi/${this.releases.filter(r => r.prerelease)[0].tag_name}/openapi/spec2.json`
+        }
+        // this.previousV1BetaRelease = this.releases.filter(r => r.prerelease)[1].tag_name
+       // this.latestV1Release = this.releases.filter(r => !r.prerelease)[0].tag_name
+       // this.latestV1BetaRelease = this.releases.filter(r => r.prerelease)[0].tag_name
+
+
+
+       this.oldSpecItems.push(this.previousV1Release,this.latestV1Release,this.previousV1BetaRelease,this.latestV1BetaRelease)
+
+        // this.oldSpecItems.push({
+        //   name: 'v1-previous',
+        //   value: `https://raw.githubusercontent.com/meraki/openapi/${this.previousV1Release}/openapi/spec2.json`
+        // });
+        // this.oldSpecItems.push({
+        //   name: 'v1-beta-previous',
+        //   value: `https://raw.githubusercontent.com/meraki/openapi/${this.previousV1BetaRelease}/openapi/spec2.json`,
+        // });
+
+        // this.newSpecItems.push({
+        //   name: 'v1-previous',
+        //   value: `https://raw.githubusercontent.com/meraki/openapi/${this.previousV1Release}/openapi/spec2.json`
+        // });
+        // this.newSpecItems.push({
+        //   name: 'v1-beta-previous',
+        //   value: `https://raw.githubusercontent.com/meraki/openapi/${this.previousV1BetaRelease}/openapi/spec2.json`,
+        // });
+
+
+        // sort
+        try {
+          this.oldSpecItems = this.oldSpecItems.localeCompare(b, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          })
+        } catch (e) {
+
+        }
+
+        try {
+          this.newSpecItems = this.newSpecItems.localeCompare(b, undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          })
+        } catch (e) {
+
+        }
+
+
+
+
+
+      },
+      update(e) {
+        this.markdown = e.target.value;
+      },
+      onLatestGA(){
+        this.oldSpec = this.previousV1Release;
+        this.newSpec = this.latestV1Release;
+        this.onSubmit();
+      },
+      onLatestBeta(){
+        this.oldSpec = this.previousV1BetaRelease;
+        this.newSpec = this.latestV1BetaRelease;
+        this.onSubmit();
+      },
+      onAllBeta(){
+        this.oldSpec = this.latestV1Release;
+        this.newSpec = this.latestV1BetaRelease;
+        this.onSubmit();
+      },
+      onSubmit() {
+        //htmlContent.innerHTML = 'loading...';
+        this.markdown = '';
+        this.loading = true;
+        // clear table of contents
+        // const toc = document.querySelector('#toc').removeChild;
+        // [].slice.call(toc.children).forEach(child => toc.removeChild(child));
+
+        console.log('fetching changelog ', this.apiUrl);
+        axios({
+            url: this.apiUrl,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            data: {
+              oldSpec: this.oldSpec.value || this.oldSpec,
+              newSpec: this.newSpec.value || this.newSpec,
+            },
+          })
+          .then(response => {
+            //console.log('response.data ', response.data);
+            return response.data;
+          })
+          .then(json => {
+            this.diff = json;
+            this.markdown = json.markdown;
+          })
+          .catch(e => {
+            console.log('fetch failed', e);
+          })
+          .finally(() => {
+            this.loading = false;
+          });
+
+      },
+    },
+  });
+</script>
+<style scoped>
+  .v-application code {
+    box-shadow: none !important;
+  }
+
+  .markdown-body {
+    box-sizing: border-box;
+    min-width: 200px;
+    /* max-width: 980px; */
+    margin: 0 auto;
+    padding: 45px;
+  }
+
+  .theme--light.v-application code {
+    background-color: rgba(0, 0, 0, .0);
+  }
+
+  @media (max-width: 767px) {
+    .markdown-body {
+      padding: 15px;
+    }
+  }
+
+  .v-application pre code,
+  .v-application kbd {
+    width: 80%
+  }
+</style>
+
+</html>
