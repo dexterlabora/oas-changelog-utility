@@ -4,9 +4,10 @@
 
 
 
-## Start Service
+## Build, Start Service
 
 ```bash
+$ yarn
 $ node index.js
 start to listen 3000
 
